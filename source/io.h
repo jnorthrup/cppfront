@@ -389,11 +389,11 @@ class braces_tracker
     std::vector<pre_if_depth_info> preprocessor = { {} };  // sentinel
     char                           current_open_type = ' ';
     std::vector<lineno_t>          open_braces;
-    std::vector<error_entry>&      errors;
+    std::vector<error_entry>*      errors;
 
 public:
     braces_tracker( std::vector<error_entry>& errors )
-        : errors{errors}
+        : errors{&errors}
     { }
 
     //  --- Brace matching functions - { and }, or ( and )
@@ -418,7 +418,7 @@ public:
             )
         {
             if (std::ssize(open_braces) < 1) {
-                errors.emplace_back(
+                errors->emplace_back(
                     pos,
                     "closing } does not match a prior {"
                 );
@@ -441,7 +441,7 @@ public:
                 if (i > 0 && i == std::ssize(open_braces)-1) { unmatched_brace_lines += " and"; };
                 unmatched_brace_lines += " " + std::to_string(open_braces[i]);
             }
-            errors.emplace_back(
+            errors->emplace_back(
                 pos,
                 std::string("end of file reached with ")
                 + std::to_string(current_depth())
@@ -466,7 +466,7 @@ public:
     //  Encountered an #else
     auto found_pre_else(lineno_t lineno) -> void {
         if (std::ssize(preprocessor) < 2) {
-            errors.emplace_back(
+            errors->emplace_back(
                 lineno,
                 "#else does not match a prior #if"
             );
@@ -475,7 +475,7 @@ public:
         if (preprocessor.back().found_preprocessor_else_was_there_another()) {
             //  If this is the second or subsequent #else, it doesn't match
             //  the prior #if, so report an error
-            errors.emplace_back(
+            errors->emplace_back(
                 lineno,
                 "#else already encountered for this #if"
             );
@@ -485,7 +485,7 @@ public:
     //  Exiting an #endif
     auto found_pre_endif(lineno_t lineno) -> void {
         if (std::ssize(preprocessor) < 2) {
-            errors.emplace_back(
+            errors->emplace_back(
                 lineno,
                 "#endif does not match a prior #if"
             );
