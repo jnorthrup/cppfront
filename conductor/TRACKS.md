@@ -1,27 +1,50 @@
-# Conductor Tracks
+# Conductor Tracks — Cpp2 Pure Self-Hosting
 
-## Track 1: Fix uninitialized variable warnings in reflect.h2
-- **Status:** CLOSED — committed 39ecdac
+## Goal
+Rewrite cppfront in Cpp2 (UFCS-free, zero runtime dependency) using EBNF combinator stack for parsing. Then output sea of nodes IR.
 
-## Track 2: io.h Cpp2 uplift (free functions + braces_tracker)
-- **Status:** CLOSED — learned: .h2 files don't pass through Cpp1, namespace issues, runtime bugs
+## Current state
+- Compiler: ~26K lines Cpp1 across 6 files (cppfront.cpp, to_cpp1.h, sema.h, parse.h, lex.h, io.h)
+- Combinator stack: 3313 lines Cpp2 in /Users/jim/work/cppfort/include/combinators/
+- reflect.h2: 8752 lines Cpp2 (needs rewrite to UFCS-free Cpp2)
 
-## Track 3: Create cpp2util_stage0.h — minimal runtime for compiler dogfooding
+## Track 1: Integrate combinator stack into cppfront
 - **Status:** OPEN
-- **Goal:** Replace cpp2util.h (3100 lines) with ~300 lines the compiler actually needs
-- **Scope:** include/cpp2util_stage0.h + modify common.h to use it
-- **What the compiler needs:**
-  - Integer typedefs (u8, i32, etc.)
-  - unchecked_narrow<T>
-  - cmp_less/cmp_greater (signed/unsigned safety)
-  - assert_not_null
-  - CPP2_UFCS macros (the bulk — ~400 lines)
-  - out<T>, inout<T>, move wrappers
-  - impl::in<T>
-- **What the compiler does NOT need:** is/as, contracts, safety checks, string interpolation, compiler ICE workarounds
-- **Verification:** compiler builds with stage0 header, all regression tests pass
+- Copy combinator headers into cppfront/include/combinators/
+- Verify they compile with cppfront's build
+- Create include/combinators.hpp umbrella header
+- Test: compiler builds with combinator headers included
 
-## Track 4: Wire EBNF combinator stack as compiler's parser
+## Track 2: Write Cpp2 emitter (string output)
 - **Status:** PENDING
-- **Goal:** Use /Users/jim/work/cppfort/include/combinators/ for parsing instead of cppfront's hand-written parser
-- **Scope:** parse.h integration with ebnf.hpp, parsing.hpp, structural.hpp
+- New file: source/emit.h (or emit.h2)
+- Takes parse tree nodes → emits Cpp1 text strings
+- Replaces to_cpp1.h's emit() functions
+- Start with: function declarations, type declarations, expressions
+
+## Track 3: Replace parse.h with combinator-based parser
+- **Status:** PENDING
+- parse.h (10995 lines) → combinator-based parsing
+- EBNF grammar drives parsing, not hand-written recursive descent
+- Parse tree nodes match combinator output types
+
+## Track 4: Rewrite remaining files in Cpp2 (UFCS-free)
+- **Status:** PENDING
+- io.h → io.h2
+- lex.h → lex.h2
+- sema.h → sema.h2
+- to_cpp1.h → emit.h2 (from Track 2)
+- cppfront.cpp → cppfront.cpp2
+- reflect.h2 → rewrite without UFCS
+
+## Track 5: Self-hosting verification
+- **Status:** PENDING
+- Compiler compiles itself
+- Regression tests pass
+- Output matches current behavior
+
+## Track 6: Sea of nodes IR
+- **Status:** PENDING
+- Change emitter from string output to node graph
+- Enable optimizations (constant folding, DCE, etc.)
+- Codegen from node graph to Cpp1 (or directly to machine code)
