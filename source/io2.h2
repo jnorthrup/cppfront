@@ -1,7 +1,6 @@
-
 //  Copyright 2022-2026 Herb Sutter
 //  SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//  
+//
 //  Part of the Cppfront Project, under the Apache License v2.0 with LLVM Exceptions.
 //  See https://github.com/hsutter/cppfront/blob/main/LICENSE for license information.
 
@@ -16,13 +15,6 @@
 
 cpp2: namespace = {
 
-//-----------------------------------------------------------------------
-//  move_next: advances i as long as p(line[i]) is true or the end of line
-//
-//  line    current line being processed
-//  i       current index
-//  p       predicate to apply
-//
 move_next: <P> (line: std::string, inout i: i32, p: P) -> bool =
 {
     while (
@@ -39,32 +31,15 @@ move_next: <P> (line: std::string, inout i: i32, p: P) -> bool =
         ;
 }
 
-
-//-----------------------------------------------------------------------
-//  peek_first_non_whitespace: returns the first non-whitespace char in line
-//
-//  line    current line being processed
-//
 peek_first_non_whitespace: (line: std::string) -> char =
 {
     i: i32 = 0;
-
-    //  find first non-whitespace character
     if !move_next(line, i, :(c: char) -> bool = { return std::isspace(c) != 0; }) {
         return '\0';
     }
-
     return line[i];
 }
 
-
-//-----------------------------------------------------------------------
-//  is_preprocessor: returns whether this is a preprocessor line starting
-//  with #, and whether it will be followed by another preprocessor line
-//
-//  line        current line being processed
-//  first_line  whether this is supposed to be the first line (start with #)
-//
 is_preprocessor_ret: @struct type = {
     is_preprocessor: bool = false;
     has_continuation: bool = false;
@@ -75,7 +50,6 @@ is_preprocessor: (
     first_line: bool
 ) -> is_preprocessor_ret =
 {
-    //  see if the first non-whitespace is #
     if (
         first_line
         && peek_first_non_whitespace(line) != '#'
@@ -83,52 +57,28 @@ is_preprocessor: (
     {
         return (false, false);
     }
-
-    //  return true iff last character is a \ continuation
     return (true, line.back() == '\\');
 }
 
-
-//-----------------------------------------------------------------------
-//  starts_with_import: returns whether the line starts with "import"
-//
-//  line    current line being processed
-//
 starts_with_import: (line: std::string) -> bool =
 {
     i: i32 = 0;
-
-    //  find first non-whitespace character
     if !move_next(line, i, :(c: char) -> bool = { return std::isspace(c) != 0; }) {
         return false;
     }
-
     import_keyword: std::string_view = "import";
-
-    // the first token must begin with 'import'
     if !std::string_view(line).substr(i).starts_with(import_keyword) {
         return false;
     }
-
-    // and not be immediately followed by an _identifier-continue_
     return !is_identifier_continue(line[i + cpp2::unchecked_narrow<i32>(import_keyword.size())]);
 }
 
-
-//-----------------------------------------------------------------------
-//  starts_with_whitespace_slash_slash: is this a "// comment" line
-//
-//  line    current line being processed
-//
 starts_with_whitespace_slash_slash: (line: std::string) -> bool =
 {
     i: i32 = 0;
-
-    //  find first non-whitespace character
     if !move_next(line, i, :(c: char) -> bool = { return std::isspace(c) != 0; }) {
         return false;
     }
-
     return
         i < std::ssize(line)-1
         && line[i] == '/'
@@ -136,21 +86,12 @@ starts_with_whitespace_slash_slash: (line: std::string) -> bool =
         ;
 }
 
-
-//-----------------------------------------------------------------------
-//  starts_with_whitespace_slash_star_and_no_star_slash: is this a "/* comment" line
-//
-//  line    current line being processed
-//
 starts_with_whitespace_slash_star_and_no_star_slash: (line: std::string) -> bool =
 {
     i: i32 = 0;
-
-    //  find first non-whitespace character
     if !move_next(line, i, :(c: char) -> bool = { return std::isspace(c) != 0; }) {
         return false;
     }
-
     if (
         i < std::ssize(line) - 1
         && line[i] == '/'
@@ -164,20 +105,11 @@ starts_with_whitespace_slash_star_and_no_star_slash: (line: std::string) -> bool
     }
 }
 
-
-//-----------------------------------------------------------------------
-//  starts_with_operator: returns whether the line starts with the string "operator"
-//  followed by the symbols of an operator
-//
-//  line    current line being processed
-//
 starts_with_operator: (s: std::string_view) -> i32 =
 {
     if s.starts_with("operator")
     {
         j: i32 = 8;
-
-        //  skip any spaces
         while (
             j < std::ssize(s)
             && std::isspace(s[j]) != 0
@@ -196,45 +128,33 @@ starts_with_operator: (s: std::string_view) -> i32 =
         if j+1 < std::ssize(s) { c2 = s[j+1]; }
         if j+2 < std::ssize(s) { c3 = s[j+2]; }
 
-        //  Check operator symbols using if/else chain
-        //  /= /  == =  ! !=  *= *  %= %  ^= ^  ~= ~
         if c1 == '/' || c1 == '=' || c1 == '!' || c1 == '*' || c1 == '%' || c1 == '^' || c1 == '~'
         {
             if c2 == '=' { return j+2; }
             return j+1;
         }
-
-        //  ++ += +
         if c1 == '+'
         {
             if c2 == '=' || c2 == '+' { return j+2; }
             return j+1;
         }
-
-        //  -- -= -> -
         if c1 == '-'
         {
             if c2 == '=' || c2 == '-' || c2 == '>' { return j+2; }
             return j+1;
         }
-
-        //  ||= || |= |   &&= && &= &
         if c1 == '|' || c1 == '&'
         {
             if c2 == c1 && c3 == '=' { return j+3; }
             if c2 == c1 || c2 == '=' { return j+2; }
             return j+1;
         }
-
-        //  >>= >> >= >
         if c1 == '>'
         {
             if c2 == '>' && c3 == '=' { return j + 3; }
             if c2 == '>' || c2 == '=' { return j + 2; }
             return j+1;
         }
-
-        //  <<= << <=> <= <
         if c1 == '<'
         {
             if c2 == '<' && c3 == '=' { return j + 3; }
@@ -247,147 +167,4 @@ starts_with_operator: (s: std::string_view) -> i32 =
     return 0;
 }
 
-
-//-----------------------------------------------------------------------
-//  braces_tracker: to track brace depth
-//
-pre_if_depth_info: @copy_constructible type = {
-    if_net_braces:   i32  = 0;
-    found_else:      bool = false;
-    else_net_braces: i32  = 0;
-
-    operator=: (out this) = {
-    }
-
-    found_open_brace: (inout this) -> void = {
-        if !found_else { if_net_braces  = if_net_braces  + 1; }
-        else           { else_net_braces = else_net_braces + 1; }
-    }
-
-    found_close_brace: (inout this) -> void = {
-        if !found_else { if_net_braces  = if_net_braces  - 1; }
-        else           { else_net_braces = else_net_braces - 1; }
-    }
-
-    found_preprocessor_else_was_there_another: (inout this) -> bool = {
-        if found_else {
-            return true;
-        }
-        found_else = true;
-        return false;
-    }
-
-    braces_to_ignore: (this) -> i32 = {
-        if if_net_braces >= 0 && if_net_braces == else_net_braces {
-            return if_net_braces;
-        }
-        return 0;
-    }
 }
-
-braces_tracker: type = {
-    preprocessor:      std::vector<pre_if_depth_info>;
-    current_open_type: char = ' ';
-    open_braces:       std::vector<lineno_t> = ();
-    error_list:        *std::vector<error_entry>;
-
-    operator=: (out this, inout errors: std::vector<error_entry>) = {
-        preprocessor = std::vector<pre_if_depth_info>();
-        error_list = errors&;
-    }
-    found_open_brace: (inout this, lineno: lineno_t, brace: char) -> void = {
-        if open_braces.empty() {
-            current_open_type = brace;
-        }
-        if current_open_type == brace {
-            open_braces.push_back(lineno);
-            preprocessor.back().found_open_brace();
-        }
-    }
-
-    found_close_brace: (inout this, pos: source_position, brace: char) -> void = {
-        if (current_open_type == '{' && brace == '}')
-            || (current_open_type == '(' && brace == ')')
-        {
-            if std::ssize(open_braces) < 1 {
-                _ = error_list*.emplace_back(
-                    pos,
-                    "closing } does not match a prior {"
-                );
-            }
-            else {
-                open_braces.pop_back();
-            }
-
-            preprocessor.back().found_close_brace();
-        }
-    }
-
-    found_eof: (inout this, pos: source_position) -> void = {
-        if current_depth() != 0 {
-            unmatched: std::string = "";
-            i: i32 = 0;
-            while i < std::ssize(open_braces) {
-                if i > 0 && std::ssize(open_braces)>2       { unmatched = unmatched + ","; }
-                if i > 0 && i == std::ssize(open_braces)-1  { unmatched = unmatched + " and"; }
-                unmatched = unmatched + " " + std::to_string(open_braces[i]);
-                i = i + 1;
-            }
-            suffix: std::string = "";
-            if current_depth() > 1 { suffix = "s"; }
-            _ = error_list*.emplace_back(
-                pos,
-                std::string("end of file reached with ")
-                + std::to_string(current_depth())
-                + " missing } to match earlier { on line"
-                + suffix
-                + unmatched
-            );
-        }
-    }
-
-    current_depth: (this) -> i32 = {
-        return cpp2::unchecked_narrow<i32>(std::ssize(open_braces));
-    }
-
-    found_pre_if: (inout this, _: lineno_t) -> void = {
-        preprocessor.push_back(pre_if_depth_info());
-    }
-
-    found_pre_else: (inout this, lineno: lineno_t) -> void = {
-        if std::ssize(preprocessor) < 2 {
-            _ = error_list*.emplace_back(
-                lineno,
-                "#else does not match a prior #if"
-            );
-        }
-
-        if preprocessor.back().found_preprocessor_else_was_there_another() {
-            _ = error_list*.emplace_back(
-                lineno,
-                "#else already encountered for this #if"
-            );
-        }
-    }
-
-    found_pre_endif: (inout this, lineno: lineno_t) -> void = {
-        if std::ssize(preprocessor) < 2 {
-            _ = error_list*.emplace_back(
-                lineno,
-                "#endif does not match a prior #if"
-            );
-        }
-
-        i: i32 = 0;
-        while i < preprocessor.back().braces_to_ignore() {
-            close_brace: char = ')';
-            if current_open_type == '{' { close_brace = '}'; }
-            found_close_brace( source_position(), close_brace );
-            i = i + 1;
-        }
-
-        preprocessor.pop_back();
-    }
-}
-
-}  // namespace cpp2
