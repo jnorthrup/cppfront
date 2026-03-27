@@ -5513,8 +5513,8 @@ autodiff_stmt_handler: type = {
         }
 
         for params do (param) {
-            name: std::string = param.get_declaration().name();
-            type: std::string = param.get_declaration().type();
+            param_name: std::string = param.get_declaration().name();
+            param_type: std::string = param.get_declaration().type();
 
             fwd_pass_style := to_string_view(param.get_passing_style());
 
@@ -5536,13 +5536,13 @@ autodiff_stmt_handler: type = {
             }
 
 
-            r.add_forward("(fwd_pass_style)$ (name)$ : (type)$(init)$, ");
-            r.add_reverse_primal("(fwd_pass_style)$ (name)$ : (type)$(init)$, ");
+            r.add_forward("(fwd_pass_style)$ (param_name)$ : (param_type)$(init)$, ");
+            r.add_reverse_primal("(fwd_pass_style)$ (param_name)$ : (param_type)$(init)$, ");
             if ada.active {
-                r.add_forward("(fwd_pass_style)$ (name)$(ctx*.fwd_suffix)$ : (ctx*.get_fwd_ad_type(type))$(init_d)$, ");
+                r.add_forward("(fwd_pass_style)$ (param_name)$(ctx*.fwd_suffix)$ : (ctx*.get_fwd_ad_type(param_type))$(init_d)$, ");
             }
 
-            ctx*.add_variable_declaration(name, type, ada.active);
+            ctx*.add_variable_declaration(param_name, param_type, ada.active);
         }
 
         return r;
@@ -5991,23 +5991,23 @@ autodiff_declaration_handler: type = {
         //  a) Parameters
 
         for f.get_parameters() do (param) {
-            name: std::string = param.get_declaration().name();
+            param_name: std::string = param.get_declaration().name();
 
             fwd_pass_style := to_string_view(param.get_passing_style());
             rws_pass_style := to_string_view(ctx*.get_reverse_passing_style(param.get_passing_style()));
 
-            if "this" ==  name {
+            if "this" ==  param_name {
                 fwd_ad_type := ctx*.get_fwd_ad_type(std::string(decl.name()));
                 rws_ad_type := ctx*.get_rws_ad_type(std::string(decl.name()));
 
-                diff.add_forward("(fwd_pass_style)$ (name)$, ");
-                diff.add_forward("(fwd_pass_style)$ (name)$(ctx*.fwd_suffix)$: (fwd_ad_type)$, ");
+                diff.add_forward("(fwd_pass_style)$ (param_name)$, ");
+                diff.add_forward("(fwd_pass_style)$ (param_name)$(ctx*.fwd_suffix)$: (fwd_ad_type)$, ");
 
-                diff.add_reverse_primal("(fwd_pass_style)$ (name)$, ");
+                diff.add_reverse_primal("(fwd_pass_style)$ (param_name)$, ");
                 if ctx*.is_taylor() { // Add forward type for higher order
-                    diff.add_reverse_primal("(fwd_pass_style)$ (name)$(ctx*.fwd_suffix)$: (fwd_ad_type)$, ");
+                    diff.add_reverse_primal("(fwd_pass_style)$ (param_name)$(ctx*.fwd_suffix)$: (fwd_ad_type)$, ");
                 }
-                diff.add_reverse_primal("(rws_pass_style)$ (name)$(ctx*.rws_suffix)$: (rws_ad_type)$, ");
+                diff.add_reverse_primal("(rws_pass_style)$ (param_name)$(ctx*.rws_suffix)$: (rws_ad_type)$, ");
             }
             else {
                 type := param.get_declaration().type();
@@ -6016,21 +6016,21 @@ autodiff_declaration_handler: type = {
                 ada.pre_traverse(param);
 
                 if ada.active {
-                    diff.add_forward("(fwd_pass_style)$ (name)$ : (type)$, ");
-                    diff.add_forward("(fwd_pass_style)$ (name)$(ctx*.fwd_suffix)$ : (ctx*.get_fwd_ad_type(type))$, ");
+                    diff.add_forward("(fwd_pass_style)$ (param_name)$ : (type)$, ");
+                    diff.add_forward("(fwd_pass_style)$ (param_name)$(ctx*.fwd_suffix)$ : (ctx*.get_fwd_ad_type(type))$, ");
 
-                    diff.add_reverse_primal("(fwd_pass_style)$ (name)$ : (type)$, ");
+                    diff.add_reverse_primal("(fwd_pass_style)$ (param_name)$ : (type)$, ");
                     if ctx*.is_taylor() {
-                        diff.add_reverse_primal("(fwd_pass_style)$ (name)$(ctx*.fwd_suffix)$ : (ctx*.get_fwd_ad_type(type))$, ");
+                        diff.add_reverse_primal("(fwd_pass_style)$ (param_name)$(ctx*.fwd_suffix)$ : (ctx*.get_fwd_ad_type(type))$, ");
                     }
-                    diff.add_reverse_primal("(rws_pass_style)$ (name)$(ctx*.rws_suffix)$ : (ctx*.get_rws_ad_type(type))$, ");
+                    diff.add_reverse_primal("(rws_pass_style)$ (param_name)$(ctx*.rws_suffix)$ : (ctx*.get_rws_ad_type(type))$, ");
                 }
                 else {
-                    diff.add_forward("(fwd_pass_style)$ (name)$ : (type)$, ");
-                    diff.add_reverse_primal("(fwd_pass_style)$ (name)$ : (type)$, ");
+                    diff.add_forward("(fwd_pass_style)$ (param_name)$ : (type)$, ");
+                    diff.add_reverse_primal("(fwd_pass_style)$ (param_name)$ : (type)$, ");
                 }
 
-                ctx*.add_variable_declaration(name, type, ada.active);
+                ctx*.add_variable_declaration(param_name, type, ada.active);
             }
         }
 
@@ -8560,16 +8560,16 @@ regex_gen: (inout t: meta::type_declaration) =
 
     for t.get_member_objects() do (inout m)
     {
-        name: std::string = m.name();
+        member_name: std::string = m.name();
 
-        if name.starts_with(prefix) || name == exact_name
+        if member_name.starts_with(prefix) || member_name == exact_name
         {
             if !m.has_initializer() {
                 t.error("Regular expression must have an initializer.");
             }
             m.mark_for_removal_from_enclosing_type();
 
-            if name == exact_name {
+            if member_name == exact_name {
                 if has_default {
                     t.error("Type can only contain one default named regular expression.");
                 }
@@ -8587,7 +8587,7 @@ regex_gen: (inout t: meta::type_declaration) =
                 t.error("Unknown string format '(expr)$'");
             }
 
-            expressions[name] = expr;
+            expressions[member_name] = expr;
         }
     }
 
